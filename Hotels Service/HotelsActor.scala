@@ -3,8 +3,10 @@ package com.example
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.http.scaladsl.model.DateTime
 
-final case class Apartament(number: Int, occupied: Boolean)
-final case class Hotel(id: Int, name: String, city: String, apartaments: Array[Apartament], price: Int, description: String, raiting: Double, photoUrls: Array[String], reviews: String*)
+final case class Apartament(number: Int, hotelId: Int, occupied: Boolean)
+final case class Review(id: Int, hotelId: Int, date: DateTime, author: String, content: String)
+final case class PhotoUrl(id: Int, hotelId: Int, url: String)
+final case class Hotel(id: Int, name: String, city: String, apartaments: Array[Apartament], price: Double, description: String, raiting: Double, photoUrls: Array[PhotoUrl], reviews: Review*)
 final case class Hotels(hotels: Hotel*)
 final case class AverageMinCosts(average: Double, min: Double)
 final case class BookingDetails(hotelId: Int, personId: Int, dateDeparture: DateTime, dateArrive: DateTime, countOfPersons: Int)
