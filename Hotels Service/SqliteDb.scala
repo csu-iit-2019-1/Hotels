@@ -69,24 +69,29 @@ object SqliteDb extends DbInteractiveModule {
     val setupFuture = db.run(setup)
     println("Done")
 
-    val insert = DBIO.seq(
-      hotels += (0, "Coral Beach Resort Tiran", "Egypt", 66600, "Worst hotel", 0.1)
-    )
+    initial
   }
 
-  def addHotel(hotel: Hotel): Unit = {
+  def initial() = {
+    addHotel(0, new Hotel("Coral Beach Resort Tiran", "Egypt", 66600, "Worst hotel", 0.1, Array(new PhotoUrl(0, 0,
+      "https://s-ec.bstatic.com/images/hotel/max1024x768/147/147997361.jpg")), Seq(new Review(0, 0, "", "", "")))) // it's bad
+    addHotel(1, new Hotel("Rixwell Elefant Hotel", "Riga", 777000, "Best hotel", 9.9, Array(new PhotoUrl(1, 1,
+      "https://momblogsociety.com/wp-content/uploads/2019/03/hotels.jpg")), Seq(new Review(0, 0, "", "", "")))) // it's bad
+  }
+
+  def addHotel(hotelId: Int, hotel: Hotel): Unit = {
     try {
       val insertHotel = DBIO.seq(
-        hotels += (hotel.id, hotel.name, hotel.city, hotel.price, hotel.description, hotel.raiting)
+        hotels += (hotelId, hotel.name, hotel.city, hotel.price, hotel.description, hotel.raiting)
       )
       db.run(insertHotel)
 
-      for (apartament <- hotel.apartaments) {
-        val insertApartament = DBIO.seq(
-          apartaments += (apartament.number, apartament.hotelId, apartament.occupied)
-        )
-        db.run(insertHotel)
-      }
+//      for (apartament <- hotel.apartaments) {
+//        val insertApartament = DBIO.seq(
+//          apartaments += (apartament.number, apartament.hotelId, apartament.occupied)
+//        )
+//        db.run(insertHotel)
+//      }
 
       for (photoUrl <- hotel.photoUrls) {
         val insertPhotoUrls = DBIO.seq(
@@ -114,12 +119,24 @@ object SqliteDb extends DbInteractiveModule {
     db.run(action)
   }
 
-  def getHotels(): Hotels = {
-    db.run(hotels.result) // need to marhal
+  def getShortInfAboutHotels(): ShortInfAboutHotels = {
+    val queryForHotels = for (h <- hotels) yield h
+    val resHotels = db.stream(queryForHotels.result).asInstanceOf[collection.mutable.ArrayBuffer[(Int, String, String, Double, String, Double)]]
+    val shortInfAboutHotels = new collection.mutable.ArrayBuffer[ShortInfAboutHotel]
+
+    for (resHotel <- resHotels) {
+      shortInfAboutHotels.append(new ShortInfAboutHotel(resHotel._1, resHotel._2, resHotel._3, resHotel._4, resHotel._6,
+        db.run(photoUrls.filter(_.hotelId === resHotel._1).result.headOption).asInstanceOf[String]))
+    }
+    new ShortInfAboutHotels(shortInfAboutHotels)
   }
 
   def getHotel(hotelId: Int): Hotel = {
-    db.run(hotels.filter(_.id === hotelId).result.headOption) // need to marhal
+    val shortInfAboutHotel = db.run(hotels.filter(_.id === hotelId).result.headOption).asInstanceOf[(Int, String, String, Double, String, Double)]
+    val resPhotoUrls = db.stream(photoUrls.filter(_.hotelId === shortInfAboutHotel._1).result).asInstanceOf[Array[PhotoUrl]] //may be need to fix asInstanceOf
+    val resReviews = db.stream(revievs.filter(_.hotelId === shortInfAboutHotel._1).result).asInstanceOf[Array[Review]] //may be need to fix asInstanceOf
+
+    new Hotel(shortInfAboutHotel._2, shortInfAboutHotel._3, shortInfAboutHotel._4, shortInfAboutHotel._5, shortInfAboutHotel._6, resPhotoUrls, resReviews)
   }
 
 }

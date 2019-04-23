@@ -26,7 +26,7 @@ trait HotelsRoutes extends JsonSupport {
 
   def hotelsActor: ActorRef
 
-  implicit lazy val timeout = Timeout(5.seconds)
+  implicit lazy val timeout = Timeout(10.seconds)
 
   lazy val hotelsRoutes: Route =
     pathPrefix("hotels") {
@@ -52,7 +52,7 @@ trait HotelsRoutes extends JsonSupport {
                   concat(
                     get {
                       val hotels: Future[Hotels] =
-                        (hotelsActor ? GetAvailableHotels(DateTime.fromIsoDateTimeString(date).get, cityId.toInt, stars.toInt)).mapTo[Hotels]
+                        (hotelsActor ? GetAvailableHotels(date, cityId.toInt, stars.toInt)).mapTo[Hotels]
                       complete(hotels)
                     }
                   )
@@ -72,7 +72,7 @@ trait HotelsRoutes extends JsonSupport {
               entity(as[Hotel]) { hotel =>
                 val valueCreated: Future[ActionPerformed] = (hotelsActor ? PutHotel(hotelId.toInt, hotel)).mapTo[ActionPerformed]
                 onSuccess(valueCreated) { performed =>
-                  log.info("Putted hotel [{}]: {}", hotel.id, performed.description)
+                  log.info("Putted hotel [{}]: {}", hotelId, performed.description)
                   complete((StatusCodes.Created, performed))
                 }
               }
@@ -96,7 +96,7 @@ trait HotelsRoutes extends JsonSupport {
                       concat(
                         get {
                           val avgCost: Future[AverageMinCosts] =
-                            (hotelsActor ? GetAverageMinCosts(DateTime.fromIsoDateTimeString(day).get, cityId.toInt, stars.toInt)).mapTo[AverageMinCosts]
+                            (hotelsActor ? GetAverageMinCosts(day, cityId.toInt, stars.toInt)).mapTo[AverageMinCosts]
                           complete(avgCost)
                         }
                       )
@@ -127,10 +127,10 @@ trait HotelsRoutes extends JsonSupport {
         pathPrefix("buyout") {        //PUT /hotels/buyout
           concat(
             put {
-              entity(as[Int]) { bookingId =>
-                val buyOutStatus: Future[ActionPerformed] = (hotelsActor ? BuyoutBooking(bookingId)).mapTo[ActionPerformed]
+              entity(as[Buyout]) { buyout =>
+                val buyOutStatus: Future[ActionPerformed] = (hotelsActor ? BuyoutBooking(buyout.bookingId)).mapTo[ActionPerformed]
                 onSuccess(buyOutStatus) { performed =>
-                  log.info("Booking [{}]: {}", bookingId, performed.description)  //may be need to detail status
+                  log.info("Booking [{}]: {}", buyout.bookingId, performed.description)  //may be need to detail status
                   complete((StatusCodes.Created, performed))
                 }
               }
