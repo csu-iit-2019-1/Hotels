@@ -107,13 +107,27 @@ trait HotelsRoutes extends JsonSupport {
             }
           )
         },
+        pathPrefix("cheapest") {      //POST /hotels/cheapest
+          concat(
+            post {
+              entity(as[SearchingParams]) { searchingParams =>
+                val cheapestHotels: Future[ShortInfAboutHotels] =
+                  (hotelsActor ? GetCheapestHotel(searchingParams))
+                  .mapTo[ShortInfAboutHotels]
+                onSuccess(cheapestHotels) { cheapestHotels =>
+                  complete(cheapestHotels)
+                }
+              }
+            }
+          )
+        },
         pathPrefix("booking") {       //POST /hotel/booking/{hotelId}
           concat(
             path(Segment) { hotelId =>
               concat(
                 post {
                   entity(as[BookingDetails]) { bookingDetails =>
-                    val createdBooking: Future[BookingResult] = (hotelsActor ? BookingHotel(hotelId.toInt, bookingDetails)).mapTo[BookingResult]
+                    val createdBooking: Future[BookingResult] = (hotelsActor ? BookingHotel(bookingDetails)).mapTo[BookingResult]
                     onSuccess(createdBooking) { createdBooking =>
                       log.info("Booked [{}]: {}", createdBooking.id, createdBooking.status)
                       complete(createdBooking)  //return bookingId and status
@@ -127,10 +141,10 @@ trait HotelsRoutes extends JsonSupport {
         pathPrefix("buyout") {        //PUT /hotels/buyout
           concat(
             put {
-              entity(as[Buyout]) { buyout =>
-                val buyOutStatus: Future[ActionPerformed] = (hotelsActor ? BuyoutBooking(buyout.bookingId)).mapTo[ActionPerformed]
+              entity(as[BuyoutDetails]) { buyoutDetails =>
+                val buyOutStatus: Future[ActionPerformed] = (hotelsActor ? BuyoutBooking(buyoutDetails)).mapTo[ActionPerformed]
                 onSuccess(buyOutStatus) { performed =>
-                  log.info("Booking [{}]: {}", buyout.bookingId, performed.description)  //may be need to detail status
+                  log.info("Booking [{}]: {}", buyoutDetails.bookingId, performed.description)  //may be need to detail status
                   complete((StatusCodes.Created, performed))
                 }
               }

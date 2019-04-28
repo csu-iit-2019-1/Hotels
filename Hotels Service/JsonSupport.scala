@@ -14,12 +14,14 @@ trait JsonSupport extends SprayJsonSupport {
   implicit val hotelDetailJsonFormat = jsonFormat3(HotelDetail)
   implicit val hotelJsonFormat = jsonFormat9(Hotel)
   implicit val hotelsJsonFormat = jsonFormat1(Hotels)
+  implicit val searchingParamsJsonFormat = jsonFormat5(SearchingParams)
   implicit val shortInfAboutHotelJsonFormat = jsonFormat8(ShortInfAboutHotel)
   implicit val shortInfAboutHotelsJsonFormat = jsonFormat1(ShortInfAboutHotels)
   implicit val averageMinCostsJsonFormat = jsonFormat2(AverageMinCosts)
   implicit val bookingDetailsJsonFormat = jsonFormat5(BookingDetails)
-  implicit val bookingResultJsonFormat = jsonFormat2(BookingResult)
-  implicit val buyoutJsonFormat = jsonFormat1(Buyout)
+  implicit val bookingResultJsonFormat = jsonFormat3(BookingResult)
+  implicit val buyoutJsonFormat = jsonFormat1(BuyoutDetails)
+  implicit val bookingResultHsonFormat = jsonFormat1(BuyoutResult)
 
   implicit val actionPerformedJsonFormat = jsonFormat1(ActionPerformed)
 }

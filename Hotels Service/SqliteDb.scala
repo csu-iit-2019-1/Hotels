@@ -16,8 +16,8 @@ class DBHotels(tag: Tag) extends Table[(Int, String, String, Double, Double, Str
   def stars = column[Double]("stars")
   def mainPhotoUrl = column[String]("mainPhotoUrl")
   def breakfast = column[Boolean]("breakfast")                    // added for searching function
-  def seaIsNear = column[Boolean]("seaIsNear") // < 100 meters :D // added for searching function
-  def * = (id, name, city, price, stars, mainPhotoUrl, breakfast, seaIsNear)
+  def seaNearby = column[Boolean]("seaNearby") // < 100 meters :D // added for searching function
+  def * = (id, name, city, price, stars, mainPhotoUrl, breakfast, seaNearby)
 }
 
 class DBHotelDetail(tag: Tag) extends Table[(Int, Int, String)](tag, "HotelsDetail") {
@@ -45,15 +45,16 @@ class DBPhotoUrls(tag: Tag) extends Table[(Int, Int, String)](tag, "PhotoUrls") 
 }
 
 
-class DBBooking(tag: Tag) extends Table[(Int, Int, Int, Int, String, String, String)](tag, "Booking") {
+class DBBooking(tag: Tag) extends Table[(Int, Int, Int, String, String, Int, Double, String)](tag, "Booking") {
   def id = column[Int]("bookingId", O.PrimaryKey)
   def personId = column[Int]("personId")
   def hotelId = column[Int]("hotelId")
-  def apartamentId = column[Int]("apartamentId")
   def dateDeparture = column[String]("dateDeparture") //need mapper from DateTime
   def dateArrive = column[String]("dateArrive") //need mapper from DateTime
+  def countOfPersons = column[Int]("countOfPersons")
+  def fullPrice = column[Double]("fullPrice")
   def status = column[String]("status")   // "expectation" to "success" or "canceled" or "error"
-  def * = (id, personId, hotelId, apartamentId, dateDeparture, dateArrive, status)
+  def * = (id, personId, hotelId, dateDeparture, dateArrive, countOfPersons, fullPrice, status)
 }
 
 
@@ -78,7 +79,7 @@ object SqliteDb extends DbInteractiveModule {
 //  deleteHotel(1)
 //  deleteHotel(2)
 //  <for testing>
-//  addHotel(0, new Hotel("Coral Beach Resort Tiran", "Cairo", 66600, 0.1, false,false, HotelDetail(0, 0, "Worst hotel"), Array(new PhotoUrl(0, 0,
+//  addHotel(0, new Hotel("Coral Beach Resort Tiran", "Cairo", 66600, 0.1, false, false, HotelDetail(0, 0, "Worst hotel"), Array(new PhotoUrl(0, 0,
 //    "https://s-ec.bstatic.com/images/hotel/max1024x768/147/147997361.jpg")), Seq(new Review(0, 0, "", "", "")))) // it's bad
 //  addHotel(1, new Hotel("11111111", "Cairo", 11111, 4.5, false, false, new HotelDetail(1, 1, "11111111"), Array(new PhotoUrl(1, 1,
 //    "111111111111111111.jpg")), Seq(new Review(1, 1, "", "", "")))) // it's bad
@@ -86,7 +87,7 @@ object SqliteDb extends DbInteractiveModule {
 //    "https://momblogsociety.com/wp-content/uploads/2019/03/hotels.jpg")), Seq(new Review(2, 2, "", "", "")))) // it's bad
 
   def addHotel(hotelId: Int, hotel: Hotel): Unit = {
-    db.run(DBIO.seq(dbHotels forceInsertExpr (hotelId, hotel.name, hotel.city.toLowerCase, hotel.price, hotel.stars, hotel.photoUrls(0).url, hotel.breakfast, hotel.seaIsNear)))
+    db.run(DBIO.seq(dbHotels forceInsertExpr (hotelId, hotel.name, hotel.city.toLowerCase, hotel.price, hotel.stars, hotel.photoUrls(0).url, hotel.breakfast, hotel.seaNearby)))
       //  .onComplete( _ => db.stream((for (hotel <- dbHotels) yield hotel.name).result).foreach(println))
 
     hotel.photoUrls.foreach( photoUrl => {db.run(DBIO.seq(dbPhotoUrls += (photoUrl.id, hotelId, photoUrl.url)))})
@@ -114,6 +115,29 @@ object SqliteDb extends DbInteractiveModule {
   def getAverageMinCosts(date: String, city: String, stars: Double): AverageMinCosts = {
     AverageMinCosts(Await.result(db.run(dbHotels.filter(_.city === city).filter(_.stars >= stars).map(_.price).min.result), Duration.Inf),
       Await.result(db.run(dbHotels.filter(_.city === city).filter(_.stars >= stars).map(_.price).avg.result), Duration.Inf))
+  }
+
+  def getCheapestHotel(searchingParams: SearchingParams): ShortInfAboutHotels = {
+    ShortInfAboutHotels(Await.result(db.run(dbHotels.filter(_.city === searchingParams.city).filter(_.stars >= searchingParams.stars)
+      .filter(_.breakfast === searchingParams.breakfast)
+      .filter(_.seaNearby === searchingParams.seaNearby)
+      .filter(_.price === getAverageMinCosts(searchingParams.date, searchingParams.city, searchingParams.stars).min).result)
+      .map(_.map(ShortInfAboutHotel tupled _)), Duration.Inf))
+  }
+
+  def bookingHotel(bookingDetails: BookingDetails): BookingResult = {  //returned bookingId, status and fullPrice to buyout
+    val fullPrice = Await.result(db.run(dbHotels.filter(_.id === bookingDetails.hotelId).map(_.price).result.head), Duration.Inf) * bookingDetails.countOfPersons
+    Await.result(db.run(DBIO.seq(dbBooking forceInsertExpr (
+      Await.result(db.run(dbBooking.map(_.id).max.result), Duration.Inf).get + 1, bookingDetails.personId, bookingDetails.hotelId,
+        bookingDetails.dateArrive, bookingDetails.dateDeparture, bookingDetails.countOfPersons, fullPrice, "Booked")))
+      , Duration.Inf)
+
+    BookingResult(Await.result(db.run(dbBooking.map(_.id).max.result), Duration.Inf), "Booked! Take your booking id", fullPrice)
+  }
+
+  def buyOut(buyoutDetails: BuyoutDetails): BuyoutResult = {
+    Await.result(db.run(dbBooking.filter(_.id === buyoutDetails.bookingId).map(_.status).update("Buyouted")), Duration.Inf) //without check money
+    BuyoutResult("Buyouted")
   }
 
 }
