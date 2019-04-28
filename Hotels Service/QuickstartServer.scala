@@ -20,6 +20,8 @@ object QuickstartServer extends App with HotelsRoutes {
 
   val serverBinding: Future[Http.ServerBinding] = Http().bindAndHandle(routes, "localhost", 8080)
 
+  SqliteDb
+
   serverBinding.onComplete {
     case Success(bound) =>
       println(s"Server online at http://${bound.localAddress.getHostString}:${bound.localAddress.getPort}/")

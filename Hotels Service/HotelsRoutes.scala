@@ -5,7 +5,7 @@ import akka.event.Logging
 
 import scala.concurrent.duration._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.model.{DateTime, StatusCodes}
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.MethodDirectives.delete
 import akka.http.scaladsl.server.directives.MethodDirectives.get
@@ -31,28 +31,28 @@ trait HotelsRoutes extends JsonSupport {
   lazy val hotelsRoutes: Route =
     pathPrefix("hotels") {
       concat (
-        pathPrefix("cities") {        //GET /hotels/cities/{cityId}
+        pathPrefix("cities") {        //GET /hotels/cities/{cityName}
           concat(
-            path(Segment) { cityId =>
+            path(Segment) { cityName =>
               concat(
                 get {
-                  val hotels: Future[Hotels] =
-                    (hotelsActor ? GetAllHotels).mapTo[Hotels]
+                  val hotels: Future[ShortInfAboutHotels] =
+                    (hotelsActor ? GetAllHotelsByCity(cityName.toLowerCase)).mapTo[ShortInfAboutHotels]
                   complete(hotels)
                 }
               )
             }
           )
         },
-        path(Segment) { date =>       //GET /hotels/{date}/{cityId}/{stars}
+        pathPrefix(Segment) { date =>       //GET /hotels/{date}/{cityName}/{stars}
           concat(
-            path(Segment) { cityId =>
+            pathPrefix(Segment) { cityName =>
               concat(
                 path(Segment) { stars =>
                   concat(
                     get {
-                      val hotels: Future[Hotels] =
-                        (hotelsActor ? GetAvailableHotels(date, cityId.toInt, stars.toInt)).mapTo[Hotels]
+                      val hotels: Future[ShortInfAboutHotels] =
+                        (hotelsActor ? GetAvailableHotels(date, cityName, stars.toDouble)).mapTo[ShortInfAboutHotels]
                       complete(hotels)
                     }
                   )
@@ -70,7 +70,7 @@ trait HotelsRoutes extends JsonSupport {
             },
             put {                             //PUT /hotels/{hotelId}
               entity(as[Hotel]) { hotel =>
-                val valueCreated: Future[ActionPerformed] = (hotelsActor ? PutHotel(hotelId.toInt, hotel)).mapTo[ActionPerformed]
+                val valueCreated: Future[ActionPerformed] = (hotelsActor ? AddHotel(hotelId.toInt, hotel)).mapTo[ActionPerformed]
                 onSuccess(valueCreated) { performed =>
                   log.info("Putted hotel [{}]: {}", hotelId, performed.description)
                   complete((StatusCodes.Created, performed))
@@ -86,17 +86,17 @@ trait HotelsRoutes extends JsonSupport {
             }
           )
         },
-        pathPrefix("averagecost") {       //GET /hotels/averagemincost/{day}/{stars}/{cityId}
+        pathPrefix("avgmincosts") {       //GET /hotels/averagemincost/{day}/{cityName}/{stars}
           concat(
-            path(Segment) { day =>
+            pathPrefix(Segment) { day =>
               concat(
-                path(Segment) { cityId =>
+                pathPrefix(Segment) { cityName =>
                   concat(
                     path(Segment) { stars =>
                       concat(
                         get {
                           val avgCost: Future[AverageMinCosts] =
-                            (hotelsActor ? GetAverageMinCosts(day, cityId.toInt, stars.toInt)).mapTo[AverageMinCosts]
+                            (hotelsActor ? GetAverageMinCosts(day, cityName, stars.toDouble)).mapTo[AverageMinCosts]
                           complete(avgCost)
                         }
                       )
