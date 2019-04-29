@@ -31,28 +31,28 @@ trait HotelsRoutes extends JsonSupport {
   lazy val hotelsRoutes: Route =
     pathPrefix("hotels") {
       concat (
-        pathPrefix("cities") {        //GET /hotels/cities/{cityName}
+        pathPrefix("cities") {        //GET /hotels/cities/{cityId}
           concat(
-            path(Segment) { cityName =>
+            path(Segment) { cityId =>
               concat(
                 get {
                   val hotels: Future[ShortInfAboutHotels] =
-                    (hotelsActor ? GetAllHotelsByCity(cityName.toLowerCase)).mapTo[ShortInfAboutHotels]
+                    (hotelsActor ? GetAllHotelsByCityId(cityId.toInt)).mapTo[ShortInfAboutHotels]
                   complete(hotels)
                 }
               )
             }
           )
         },
-        pathPrefix(Segment) { date =>       //GET /hotels/{date}/{cityName}/{stars}
+        pathPrefix(Segment) { date =>       //GET /hotels/{date}/{cityId}/{stars}
           concat(
-            pathPrefix(Segment) { cityName =>
+            pathPrefix(Segment) { cityId =>
               concat(
                 path(Segment) { stars =>
                   concat(
                     get {
                       val hotels: Future[ShortInfAboutHotels] =
-                        (hotelsActor ? GetAvailableHotels(date, cityName, stars.toDouble)).mapTo[ShortInfAboutHotels]
+                        (hotelsActor ? GetAvailableHotels(date, cityId.toInt, stars.toDouble)).mapTo[ShortInfAboutHotels]
                       complete(hotels)
                     }
                   )
@@ -86,17 +86,17 @@ trait HotelsRoutes extends JsonSupport {
             }
           )
         },
-        pathPrefix("avgmincosts") {       //GET /hotels/averagemincost/{day}/{cityName}/{stars}
+        pathPrefix("avgmincosts") {       //GET /hotels/avgmincosts/{day}/{cityId}/{stars}
           concat(
             pathPrefix(Segment) { day =>
               concat(
-                pathPrefix(Segment) { cityName =>
+                pathPrefix(Segment) { cityId =>
                   concat(
                     path(Segment) { stars =>
                       concat(
                         get {
                           val avgCost: Future[AverageMinCosts] =
-                            (hotelsActor ? GetAverageMinCosts(day, cityName, stars.toDouble)).mapTo[AverageMinCosts]
+                            (hotelsActor ? GetAverageMinCosts(day, cityId.toInt, stars.toDouble)).mapTo[AverageMinCosts]
                           complete(avgCost)
                         }
                       )
@@ -107,7 +107,7 @@ trait HotelsRoutes extends JsonSupport {
             }
           )
         },
-        pathPrefix("cheapest") {      //POST /hotels/cheapest
+        path("cheapest") {      //POST /hotels/cheapest
           concat(
             post {
               entity(as[SearchingParams]) { searchingParams =>
@@ -121,31 +121,26 @@ trait HotelsRoutes extends JsonSupport {
             }
           )
         },
-        pathPrefix("booking") {       //POST /hotel/booking/{hotelId}
+        path("booking") {       //POST /hotels/booking
           concat(
-            path(Segment) { hotelId =>
-              concat(
-                post {
-                  entity(as[BookingDetails]) { bookingDetails =>
-                    val createdBooking: Future[BookingResult] = (hotelsActor ? BookingHotel(bookingDetails)).mapTo[BookingResult]
-                    onSuccess(createdBooking) { createdBooking =>
-                      log.info("Booked [{}]: {}", createdBooking.id, createdBooking.status)
-                      complete(createdBooking)  //return bookingId and status
-                    }
-                  }
+            post {
+              entity(as[BookingDetails]) { bookingDetails =>
+                val createdBooking: Future[BookingResult] = (hotelsActor ? BookingHotel(bookingDetails)).mapTo[BookingResult]
+                onSuccess(createdBooking) { createdBooking =>
+                  log.info("Booked [{}]: {}", createdBooking.id, createdBooking.status)
+                  complete(createdBooking)  //return bookingId and status
                 }
-              )
+              }
             }
           )
         },
-        pathPrefix("buyout") {        //PUT /hotels/buyout
+        path("buyout") {        //PUT /hotels/buyout
           concat(
             put {
               entity(as[BuyoutDetails]) { buyoutDetails =>
-                val buyOutStatus: Future[ActionPerformed] = (hotelsActor ? BuyoutBooking(buyoutDetails)).mapTo[ActionPerformed]
-                onSuccess(buyOutStatus) { performed =>
-                  log.info("Booking [{}]: {}", buyoutDetails.bookingId, performed.description)  //may be need to detail status
-                  complete((StatusCodes.Created, performed))
+                val buyoutResult: Future[BuyoutResult] = (hotelsActor ? BuyoutBooking(buyoutDetails)).mapTo[BuyoutResult]
+                onSuccess(buyoutResult) { buyoutResult =>
+                  complete(buyoutResult)
                 }
               }
             }
