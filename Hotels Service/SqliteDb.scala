@@ -67,23 +67,15 @@ object SqliteDb extends DbInteractiveModule {
 
   val db = Database.forConfig("hotels")
 
-  db.run(DBIO.seq(dbHotels.schema.create))
-  db.run(DBIO.seq(dbHotelsDetail.schema.create))
-  db.run(DBIO.seq(dbRevievs.schema.create))
-  db.run(DBIO.seq(dbPhotoUrls.schema.create))
-  db.run(DBIO.seq(dbBooking.schema.create))
+  def createSchemas(): Unit = {
+    db.run(DBIO.seq(dbHotels.schema.create))
+    db.run(DBIO.seq(dbHotelsDetail.schema.create))
+    db.run(DBIO.seq(dbRevievs.schema.create))
+    db.run(DBIO.seq(dbPhotoUrls.schema.create))
+    db.run(DBIO.seq(dbBooking.schema.create))
+  }
 
-//  deleteHotel(0)
-//  deleteHotel(1)
-//  deleteHotel(2)
-//  <for testing>
-//  addHotel(0, Hotel("Coral Beach Resort Tiran", 1, 55500, 0.1, false, false, HotelsDetail(0, 0, "Worst hotel"), Array(PhotoUrl(0, 0,
-//    "https://s-ec.bstatic.com/images/hotel/max1024x768/147/147997361.jpg")), Seq(Review(0, 0, "2018-01-03", "Pharaoh", "sometext")))) // it's bad
-//  addHotel(1, Hotel("Try Me Beach", 1, 66600, 4.5, false, false, HotelsDetail(1, 1, "Death metal"), Array(PhotoUrl(1, 1,
-//    "https://fakepicturehotel1423.jpg")), Seq(Review(1, 1, "2099-11-14", "Rick Sunchez", "Wubbalubbadubdub!")))) // it's bad
-//  addHotel(2, Hotel("Rixwell Elefant Hotel", 2, 777000, 5, true, true, HotelsDetail(2, 2, "Best hotel"), Array(PhotoUrl(2, 2,
-//    "https://momblogsociety.com/wp-content/uploads/2019/03/hotels.jpg")), Seq(Review(2, 2, "1876-04-05", "Scorpion", "Get over here!!!")))) // it's bad
-//  db.run(DBIO.seq(dbBooking forceInsertExpr (0, 0, 0, "", "", 0, 0.0, "")))
+  def initBooking(): Unit = db.run(DBIO.seq(dbBooking forceInsertExpr (0, 0, 0, "", "", 0, 0.0, "")))
 
   def addHotel(hotelId: Int, hotel: Hotel): Unit = {
     db.run(DBIO.seq(dbHotels forceInsertExpr (hotelId, hotel.name, hotel.cityId, hotel.price, hotel.stars, hotel.photoUrls.head.url, hotel.breakfast, hotel.seaNearby)))
@@ -117,11 +109,18 @@ object SqliteDb extends DbInteractiveModule {
   }
 
   def getCheapestHotel(searchingParams: SearchingParams): ShortInfAboutHotels = {
-    ShortInfAboutHotels(Await.result(db.run(dbHotels.filter(_.cityId === searchingParams.cityId).filter(_.stars >= searchingParams.stars)
-      .filter(_.breakfast === searchingParams.breakfast)
-      .filter(_.seaNearby === searchingParams.seaNearby)
-      .filter(_.price === getAverageMinCosts(searchingParams.date, searchingParams.cityId, searchingParams.stars).min).result)
-      .map(_.map(ShortInfAboutHotel tupled _)), Duration.Inf))
+    if (searchingParams.seaNearby) {
+      // i know... i know ... just i can't use filter(hotel => (searchingParams.seaNearby == true && hotel.seaNearby === searchingParams.seaNearby)
+      // because filter worked with [T <: Rep[_]] instead with just a boolean (Rep it's column)
+      ShortInfAboutHotels(Await.result(db.run(dbHotels.filter(_.cityId === searchingParams.cityId).filter(_.stars >= searchingParams.stars)
+        .filter(_.breakfast === searchingParams.breakfast).filter(_.seaNearby === searchingParams.seaNearby)
+        .filter(_.price === getAverageMinCosts(searchingParams.date, searchingParams.cityId, searchingParams.stars).min).result)
+        .map(_.map(ShortInfAboutHotel tupled _)), Duration.Inf))
+    } else {
+      ShortInfAboutHotels(Await.result(db.run(dbHotels.filter(_.cityId === searchingParams.cityId).filter(_.stars >= searchingParams.stars)
+        .filter(_.breakfast === searchingParams.breakfast).filter(_.price === getAverageMinCosts(searchingParams.date, searchingParams.cityId, searchingParams.stars).min).result)
+        .map(_.map(ShortInfAboutHotel tupled _)), Duration.Inf))
+    }
   }
 
   def bookingHotel(bookingDetails: BookingDetails): BookingResult = {  //returned bookingId, status and fullPrice to buyout
@@ -131,12 +130,13 @@ object SqliteDb extends DbInteractiveModule {
         bookingDetails.dateArrive, bookingDetails.dateDeparture, bookingDetails.countOfPersons, fullPrice, "Booked")))
       , Duration.Inf)
 
-    BookingResult(Await.result(db.run(dbBooking.map(_.id).max.result), Duration.Inf), "Booked! Take your booking id", fullPrice)
+    BookingResult(Await.result(db.run(dbBooking.map(_.id).max.result), Duration.Inf))//, "Booked! Take your booking id", fullPrice)
   }
 
   def buyOut(buyoutDetails: BuyoutDetails): BuyoutResult = {
     Await.result(db.run(dbBooking.filter(_.id === buyoutDetails.bookingId).map(_.status).update("Buyouted")), Duration.Inf) //without check money
     BuyoutResult("Buyouted")
+    //ByuoutResult(true)
   }
 
 }

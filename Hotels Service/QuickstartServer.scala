@@ -5,7 +5,7 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server._
 import akka.stream.ActorMaterializer
 
 object QuickstartServer extends App with HotelsRoutes {
@@ -18,9 +18,11 @@ object QuickstartServer extends App with HotelsRoutes {
 
   lazy val routes: Route = hotelsRoutes
 
-  val serverBinding: Future[Http.ServerBinding] = Http().bindAndHandle(routes, "localhost", 8080)
+  val port: Int = sys.env.getOrElse("PORT", "8080").toInt
+  val serverBinding: Future[Http.ServerBinding] = Http().bindAndHandle(routes, "0.0.0.0", port)
 
   SqliteDb
+  //TestingData
 
   serverBinding.onComplete {
     case Success(bound) =>
