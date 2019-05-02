@@ -13,9 +13,9 @@ final case class ShortInfAboutHotels(shortInfAboutHotel: Seq[ShortInfAboutHotel]
 final case class AverageMinCosts(average: Option[Double], min: Option[Double])
 final case class BookingDetails(personId: Int, hotelId: Int, dateArrive: String, dateDeparture: String, countOfPersons: Int)
 //final case class BookingResult(id: Option[Int], status: String, fullPrice: Double)
-final case class BookingResult(bookingId: Option[Int])
-final case class BuyoutDetails(bookingId: Int)
-final case class BuyoutResult(status: String)
+final case class BookingResult(BookingId: Option[Int])
+final case class BuyoutDetails(BookingId: Int)
+final case class BuyoutResult(status: Boolean)
 //final case class BuyoutResult(status: Boolean)
 
 object HotelsActor {
@@ -24,7 +24,7 @@ object HotelsActor {
   final case class GetHotel(id: Int)
   final case class AddHotel(hotelId: Int, hotel: Hotel)
   final case class DeleteHotel(hotelId: Int)
-  final case class GetAverageMinCosts(day: String, cityId: Int, stars: Double) //day: DateTime
+  final case class GetAverageMinCosts(searchingParams: SearchingParams) //day: DateTime
   final case class GetCheapestHotel(searchingParams: SearchingParams)
   final case class BookingHotel(bookingDetails: BookingDetails)
   final case class BuyoutBooking(buyoutDetails: BuyoutDetails)
@@ -48,8 +48,8 @@ class HotelsActor extends Actor with ActorLogging {
       sender() ! SqliteDb.addHotel(hotelId, hotel)
     case DeleteHotel(hotelId) =>
       sender() ! SqliteDb.deleteHotel(hotelId)
-    case GetAverageMinCosts(date, cityId, stars) =>
-      sender() ! SqliteDb.getAverageMinCosts(date, cityId, stars)
+    case GetAverageMinCosts(searchingParams) =>
+      sender() ! SqliteDb.getAverageMinCosts(searchingParams)
     case GetCheapestHotel(searchingParams) =>
       sender() ! SqliteDb.getCheapestHotel(searchingParams)
     case BookingHotel(bookingDetails) =>
